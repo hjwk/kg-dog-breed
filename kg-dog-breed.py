@@ -3,12 +3,15 @@ from sklearn.datasets import load_files
 from keras import applications  
 from keras.utils import np_utils
 from keras.preprocessing.image import ImageDataGenerator, img_to_array, load_img  
-from keras.layers import Dropout, Flatten, Dense
+from keras.layers import Dropout, Flatten, Dense, GlobalAveragePooling2D
 from keras.models import Sequential
-from keras.callbacks import ModelCheckpoint 
+from keras.callbacks import ModelCheckpoint
 
 from keras.preprocessing import image                  
 from tqdm import tqdm
+
+from PIL import ImageFile                            
+ImageFile.LOAD_TRUNCATED_IMAGES = True  
 
 import pandas as pd
 import numpy as np
@@ -29,64 +32,72 @@ def path_to_tensor(img_path):
     # convert 3D tensor to 4D tensor with shape (1, 224, 224, 3) and return 4D tensor
     return np.expand_dims(x, axis=0)
 
+def paths_to_tensor(img_paths):
+    list_of_tensors = [path_to_tensor(img_path) for img_path in tqdm(img_paths)]
+    return np.vstack(list_of_tensors)
 
 ## Bottleneck features
 def save_bottleneck_features():
-    datagen = ImageDataGenerator(preprocessing_function=applications.vgg16.preprocess_input)
+    #datagen = ImageDataGenerator(preprocessing_function=applications.vgg16.preprocess_input)
 
     # build the network
     model = applications.VGG16(include_top=False, weights='imagenet')
 
-    train_data = load_files(train_dir)
-    train_tensors = path_to_tensor(train_data['filenames']).astype('float32')/255
-    train_data = applications.vgg16.preprocess_input(train_data)
+    train_files = load_files(train_dir)
+    train_tensors = paths_to_tensor(train_files['filenames'])#.astype('float32')/255
+    train_data = applications.vgg16.preprocess_input(train_tensors)
 
-    generator = datagen.flow_from_directory(
+    '''generator = datagen.flow_from_directory(
         train_dir,
         target_size=(img_width, img_height),
         batch_size=batch_size,
         class_mode=None,
-        shuffle=False)
-
-    bottleneck_features_train = model.predict_generator(
-        generator, len(generator.filenames) / batch_size)
+        shuffle=False)'''
+        
+    bottleneck_features_train = model.predict(
+        train_data, batch_size=16)
 
     np.save('bottleneck_features/train.npy', bottleneck_features_train)
 
-    generator = datagen.flow_from_directory(
-        val_dir,
-        target_size=(img_width, img_height),
-        batch_size=batch_size,
-        class_mode=None,
-        shuffle=False)
+    val_files = load_files(val_dir)
+    val_tensors = paths_to_tensor(val_files['filenames'])#.astype('float32')/255
+    val_data = applications.vgg16.preprocess_input(val_tensors)
+    
+    #generator = datagen.flow_from_directory(
+    #    val_dir,
+    #    target_size=(img_width, img_height),
+    #    batch_size=batch_size,
+    #    class_mode=None,
+    #    shuffle=False)
 
-    bottleneck_features_validation = model.predict_generator(
-        generator, len(generator.filenames) / batch_size)
+    bottleneck_features_validation = model.predict(
+        val_data, batch_size=16)
 
     np.save('bottleneck_features/validation.npy', bottleneck_features_validation)
 
 def load_labels(path):
-    datagen = ImageDataGenerator(rescale=1./255)
-    generator = datagen.flow_from_directory(
-        path,
-        target_size=(img_width, img_height),
-        batch_size=batch_size,
-        class_mode='categorical',
-        shuffle=False)
-    labels = generator.classes
-    labels = np_utils.to_categorical(labels, 120)
+    data = load_files(path)
+    labels = np_utils.to_categorical(np.array(data['target']), 120)
+
     return labels
 
 ## Create bottleneck features
-save_bottleneck_features()
+#save_bottleneck_features()
+
+## Load bottleneck features
+print('Loading training bottleneck features')
 train_data = np.load('bottleneck_features/train.npy')
 train_labels = load_labels('data_gen/train')
+
+print('Loading validation bottleneck features')
 validation_data = np.load('bottleneck_features/validation.npy')
 validation_labels = load_labels('data_gen/validation')
 
 ## Model definition
+print('Defining model')
 model = Sequential()
-model.add(Flatten(input_shape = train_data.shape[1:]))
+model.add(GlobalAveragePooling2D(input_shape = train_data.shape[1:]))
+model.add(Dense(512, activation='relu'))
 model.add(Dense(120, activation='softmax'))
 model.summary()
 

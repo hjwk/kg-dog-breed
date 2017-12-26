@@ -3,12 +3,16 @@ Code for kaggle's [Dog Breed Identification problem](https://www.kaggle.com/c/do
 
 ## Setup
 1. Clone the repository and navigate to its root.
-`git clone https://github.com/hjwk/kg-dog-breed
-cd kg-dog-project`
+```
+git clone https://github.com/hjwk/kg-dog-breed
+cd kg-dog-project
+```
 
 2. Create a virtual environment from the requirements files (I used the same environment as for Udacity's [dog project](https://github.com/udacity/dog-project).
-`conda env create -f requirements/dog-windows.yml
-activate kg-dog-breed`
+```
+conda env create -f requirements/dog-windows.yml
+activate kg-dog-breed
+```
 
 3. Download the [training](https://www.kaggle.com/c/dog-breed-identification/download/train.zip) and [testing](https://www.kaggle.com/c/dog-breed-identification/download/test.zip) data and put them in `data/train` and `data/test`. 
 

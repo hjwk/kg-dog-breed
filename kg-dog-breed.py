@@ -2,7 +2,7 @@ from sklearn.datasets import load_files
 
 from keras import applications
 from keras.utils import np_utils
-from keras.layers import Dropout, Flatten, Dense
+from keras.layers import Dropout, Flatten, Dense, BatchNormalization
 from keras.models import Sequential
 from keras.callbacks import ModelCheckpoint
 from keras.preprocessing import image                  
@@ -91,21 +91,31 @@ validation_labels = load_labels('data_gen/validation')
 print('Defining model')
 model = Sequential()
 model.add(Flatten(input_shape = train_data.shape[1:]))
+model.add(Dropout(0.5))
+model.add(BatchNormalization())
+model.add(Dense(256, activation='relu', kernel_initializer='he_uniform'))
+model.add(BatchNormalization())
+model.add(Dropout(0.5))
+model.add(Dense(128, activation='relu', kernel_initializer='he_uniform'))
+model.add(BatchNormalization())
+model.add(Dropout(0.5))
 model.add(Dense(120, activation='softmax'))
 model.summary()
 model.compile(loss='categorical_crossentropy', optimizer='Adam', metrics=['accuracy'])
 
 ## Training
 checkpointer = ModelCheckpoint(filepath='saved_models/weights.best.hdf5', 
-                               verbose=1, save_best_only=True)
-epochs = 45
+                               verbose=2, save_best_only=True)
+
+epochs = 40
+batch_size = 64
 history = model.fit(train_data, train_labels,
                     validation_data=(validation_data, validation_labels),
                     epochs=epochs, batch_size=batch_size,
                     callbacks=[checkpointer], verbose=2)
 
 ## Testing
-'''
+
 model.load_weights('saved_models/weights.best.hdf5')
 
 train_labels = np.array(pd.read_csv('data/labels.csv'))
@@ -127,4 +137,3 @@ for [o, name] in zip(output, filenames):
     f.write('\n')
 
 f.close()
-'''
